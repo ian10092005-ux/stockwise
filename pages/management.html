@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>System Management — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">System Management <span class="topbar-sub">/ Users &amp; Logs</span></div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="notifBellBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span id="notifDot" style="display:none;position:absolute;top:6px;right:6px;width:7px;height:7px;background:var(--danger);border-radius:50%"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>System Management</h2>
+        <p>Manage user accounts and view system activity logs</p>
+      </div>
+    </div>
+
+    <!-- USER ACCOUNTS -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-title">User Accounts</div>
+          <div class="card-sub">Manage roles and access control</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modalAddUser')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add User
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Full Name</th><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+          <tbody id="usersTbody">
+            <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ACTIVITY LOG -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-title">Activity Log</div>
+          <div class="card-sub">Stock movements recorded by the system</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="form-control" id="logTypeFilter" style="width:auto;padding:5px 10px;font-size:.78rem" onchange="loadLogs()">
+            <option value="">All Types</option>
+            <option value="IN">Stock In</option>
+            <option value="OUT">Stock Out</option>
+            <option value="EXPIRED">Disposed</option>
+            <option value="DEPLETED">Depleted</option>
+            <option value="ADJUSTMENT">Adjustment</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="loadLogs()">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date &amp; Time</th><th>User</th><th>Product</th><th>Variant</th><th>Type</th><th>Qty Change</th><th>Remarks</th></tr></thead>
+          <tbody id="logsTbody">
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-outline btn-sm" id="logPrevBtn" onclick="changePage(-1)" disabled>← Prev</button>
+        <span id="logPageInfo" style="font-size:.82rem;color:var(--text-muted);align-self:center">Page 1</span>
+        <button class="btn btn-outline btn-sm" id="logNextBtn" onclick="changePage(1)">Next →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="modalAddUser">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add User Account</div>
+      <button class="modal-close" onclick="closeModal('modalAddUser')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">First Name <span class="req">*</span></label><input class="form-control" id="au-firstname" placeholder="e.g. Juan"/></div>
+        <div class="form-group"><label class="form-label">Last Name <span class="req">*</span></label><input class="form-control" id="au-lastname" placeholder="e.g. dela Cruz"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Username <span class="req">*</span></label><input class="form-control" id="au-username" placeholder="e.g. cashier_003"/></div>
+      <div class="form-group"><label class="form-label">Role <span class="req">*</span></label>
+        <select class="form-control" id="au-role">
+          <option value="">-- Select Role --</option>
+          <option value="admin">Admin</option>
+          <option value="stock_manager">Stock Manager</option>
+          <option value="cashier">Cashier</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Password <span class="req">*</span></label><input class="form-control" id="au-pass" type="password" placeholder="Minimum 8 characters"/></div>
+      <div class="form-group"><label class="form-label">Confirm Password <span class="req">*</span></label><input class="form-control" id="au-confirm" type="password" placeholder="Repeat password"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalAddUser')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddUser()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+let _logPage  = 0;
+const LOG_LIMIT = 20;
+
+// ── Users ─────────────────────────────────────────────────────
+async function loadUsers() {
+    const res = await apiGet('users.php');
+    if (!res) return;
+    const roleClass = { admin:'badge-info', stock_manager:'badge-warning', cashier:'badge-gray' };
+    const roleLabel = { admin:'Admin', stock_manager:'Stock Manager', cashier:'Cashier' };
+    const me = window.__sw_user?.username;
+    document.getElementById('usersTbody').innerHTML = res.data.map(u => `
+        <tr id="user-row-${u.user_id}">
+          <td><div class="td-bold">${u.full_name || '—'}</div></td>
+          <td class="td-sub">${u.username}</td>
+          <td><span class="badge ${roleClass[u.role] || 'badge-gray'}">${roleLabel[u.role] || u.role}</span></td>
+          <td>${u.username !== me
+              ? `<button class="btn-danger-sm" onclick="deleteUser(${u.user_id}, '${u.username}')">Delete</button>`
+              : `<span style="font-size:.75rem;color:var(--text-muted)">Current user</span>`
+          }</td>
+        </tr>`).join('');
+}
+
+async function deleteUser(id, username) {
+    if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+    const res = await apiDelete(`users.php?id=${id}`);
+    if (res && res.success) {
+        document.getElementById('user-row-' + id)?.remove();
+        showToast(`User "${username}" deleted.`, 'warn');
+    } else {
+        showToast(res?.message || 'Delete failed.', 'error');
+    }
+}
+
+async function submitAddUser() {
+    const firstName = document.getElementById('au-firstname').value.trim();
+    const lastName  = document.getElementById('au-lastname').value.trim();
+    const username  = document.getElementById('au-username').value.trim();
+    const role      = document.getElementById('au-role').value;
+    const pass      = document.getElementById('au-pass').value;
+    const confirm   = document.getElementById('au-confirm').value;
+
+    if (!firstName || !lastName || !username || !role || !pass) { showToast('Fill in all required fields.', 'error'); return; }
+    if (pass.length < 8)  { showToast('Password must be at least 8 characters.', 'error'); return; }
+    if (pass !== confirm) { showToast('Passwords do not match.', 'error'); return; }
+
+    const res = await apiPost('users.php', { first_name: firstName, last_name: lastName, username, role, password: pass });
+    if (res && res.success) {
+        closeModal('modalAddUser');
+        ['au-firstname','au-lastname','au-username','au-pass','au-confirm'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('au-role').value = '';
+        showToast(`User "${username}" created.`);
+        loadUsers();
+    } else {
+        showToast(res?.message || 'Failed to create user.', 'error');
+    }
+}
+
+// ── Logs ──────────────────────────────────────────────────────
+async function loadLogs() {
+    const type   = document.getElementById('logTypeFilter').value;
+    const offset = _logPage * LOG_LIMIT;
+    const res    = await apiGet(`logs.php?limit=${LOG_LIMIT}&offset=${offset}${type ? '&type='+type : ''}`);
+    if (!res) return;
+
+    const typeColors = { IN:'badge-success', OUT:'badge-gray', EXPIRED:'badge-danger', DEPLETED:'badge-danger', ADJUSTMENT:'badge-warning' };
+    const typeLabel  = { IN:'Stock In', OUT:'Stock Out', EXPIRED:'Disposed', DEPLETED:'Depleted', ADJUSTMENT:'Adjustment' };
+
+    document.getElementById('logsTbody').innerHTML = res.data.length
+        ? res.data.map(r => `
+            <tr>
+              <td class="td-sub">${r.moved_at}</td>
+              <td><div class="td-bold">${r.username}</div><div class="td-sub">${r.full_name}</div></td>
+              <td><div class="td-bold">${r.product_name}</div><div class="td-sub">${r.sku_code}</div></td>
+              <td>${r.variant_name || '—'}</td>
+              <td><span class="badge ${typeColors[r.type] || 'badge-gray'}">${typeLabel[r.type] || r.type}</span></td>
+              <td style="font-weight:600;color:${r.type==='IN'?'var(--success)':r.type==='OUT'||r.type==='EXPIRED'||r.type==='DEPLETED'?'var(--danger)':'var(--warning)'}">${r.type==='IN'?'+':'−'}${Math.abs(r.quantity_change)}</td>
+              <td class="td-sub">${r.remarks || '—'}</td>
+            </tr>`).join('')
+        : `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No activity found.</td></tr>`;
+
+    const total    = res.total;
+    const maxPage  = Math.max(0, Math.ceil(total / LOG_LIMIT) - 1);
+    document.getElementById('logPageInfo').textContent = `Page ${_logPage + 1} of ${Math.ceil(total / LOG_LIMIT) || 1}`;
+    document.getElementById('logPrevBtn').disabled = _logPage === 0;
+    document.getElementById('logNextBtn').disabled = _logPage >= maxPage;
+}
+
+function changePage(dir) {
+    _logPage += dir;
+    loadLogs();
+}
+
+loadUsers();
+loadLogs();
+</script>
+</body>
+</html>

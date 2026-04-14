@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Dashboard <span class="topbar-sub">/ Overview</span></div>
+    <div class="search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Search..."/>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-dot" id="notifDot" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 id="greetingText">Good Morning</h2>
+        <p id="greetingSub">Here is your overview for today.</p>
+      </div>
+    </div>
+
+    <!-- Dynamic dashboard content injected here -->
+    <div id="dashboardRoot"></div>
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+let chartInstance  = null;
+const COLORS = ['#1a56db','#16bdca','#0e9f6e','#d97706','#e02424','#7c3aed','#94a3b8','#ec4899'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmt  = n => 'P' + parseFloat(n).toLocaleString('en-PH', {minimumFractionDigits:2});
+const fmtDay = str => { const [,m,d] = str.split('-'); return `${MONTHS[+m-1]} ${+d}`; };
+
+// ── Greeting ────────────────────────────────────────────────
+(function() {
+    const h = new Date().getHours();
+    document.getElementById('greetingText').textContent =
+        h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening';
+})();
+
+// ── Sales trend chart (shared) ───────────────────────────────
+function renderSalesChart(canvasId, trend, color = '#1a56db') {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    canvas.closest('.card-body').querySelectorAll('.chart-empty-msg').forEach(e => e.remove());
+
+    const allZero = trend.every(r => parseFloat(r.revenue) === 0);
+    if (allZero) {
+        canvas.style.opacity = '0.35';
+        chartInstance = new Chart(canvas, {
+            type: 'line',
+            data: { labels: trend.map(r => fmtDay(r.day)), datasets: [{ data: trend.map(()=>0),
+                borderColor:'#cbd5e1', backgroundColor:'rgba(203,213,225,0.05)',
+                borderWidth:2, borderDash:[6,4], pointRadius:0, fill:true }] },
+            options: { responsive:true, plugins:{ legend:{display:false}, tooltip:{enabled:false} },
+                scales:{ y:{beginAtZero:true, grid:{color:'#f0f4ff'}, ticks:{callback:v=>'P'+v, font:{size:11}}},
+                         x:{grid:{display:false}, ticks:{font:{size:11}}} } }
+        });
+        const msg = document.createElement('div');
+        msg.className = 'chart-empty-msg';
+        msg.style.cssText = 'text-align:center;color:var(--text-muted);font-size:.8rem;margin-top:8px;padding:0 12px';
+        msg.innerHTML = '📊 No sales recorded yet.';
+        canvas.closest('.card-body').appendChild(msg);
+    } else {
+        canvas.style.opacity = '1';
+        chartInstance = new Chart(canvas, {
+            type: 'line',
+            data: { labels: trend.map(r => fmtDay(r.day)),
+                datasets: [{ label:'Revenue', data: trend.map(r => parseFloat(r.revenue)),
+                    borderColor: color, backgroundColor: color.replace(')', ',0.07)').replace('rgb','rgba'),
+                    borderWidth:2.5, pointBackgroundColor:color, pointRadius:4, tension:0.4, fill:true }] },
+            options: { responsive:true, plugins:{legend:{display:false}},
+                scales:{ y:{beginAtZero:false, grid:{color:'#f0f4ff'}, ticks:{callback:v=>'P'+v.toLocaleString(), font:{size:11}}},
+                         x:{grid:{display:false}, ticks:{font:{size:11}}} } }
+        });
+    }
+}
+
+// ── CASHIER DASHBOARD ────────────────────────────────────────
+function renderCashier(data) {
+    document.getElementById('greetingSub').textContent = "Here's your sales summary for today.";
+    const { stats, sales_trend, recent_transactions } = data;
+
+    document.getElementById('dashboardRoot').innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-info">
+            <h4>Today's Sales</h4>
+            <div class="stat-value" id="cToday">—</div>
+            <div class="stat-delta neutral">Your transactions today</div>
+          </div>
+          <div class="stat-icon green">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0e9f6e" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info">
+            <h4>Transactions Today</h4>
+            <div class="stat-value" id="cCount">—</div>
+            <div class="stat-delta neutral">Sales recorded today</div>
+          </div>
+          <div class="stat-icon blue">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info">
+            <h4>This Month</h4>
+            <div class="stat-value" id="cMonth">—</div>
+            <div class="stat-delta neutral">Your monthly total</div>
+          </div>
+          <div class="stat-icon yellow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2-1">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left">
+              <div class="card-title">My Sales Trend</div>
+              <div class="card-sub">Your revenue for the last 7 days</div>
+            </div>
+          </div>
+          <div class="card-body"><canvas id="cashierChart" height="190"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left">
+              <div class="card-title">Recent Transactions</div>
+              <div class="card-sub">Your last 10 sales</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Sale #</th><th>Time</th><th>Total</th><th>Change</th></tr></thead>
+              <tbody id="recentTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('cToday').textContent  = fmt(stats.today_total);
+    document.getElementById('cCount').textContent  = stats.today_count;
+    document.getElementById('cMonth').textContent  = fmt(stats.month_total);
+
+    renderSalesChart('cashierChart', sales_trend, '#0e9f6e');
+
+    const tbody = document.getElementById('recentTbody');
+    if (!recent_transactions.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">No transactions yet today.</td></tr>`;
+    } else {
+        tbody.innerHTML = recent_transactions.map(r => `
+            <tr>
+              <td class="td-sub">#${r.sale_id}</td>
+              <td>${new Date(r.sale_date).toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit'})}</td>
+              <td style="font-weight:600">${fmt(r.total_amount)}</td>
+              <td style="color:var(--success)">${fmt(r.change_amount)}</td>
+            </tr>`).join('');
+    }
+}
+
+// ── STOCK MANAGER DASHBOARD ──────────────────────────────────
+function renderStockManager(data) {
+    document.getElementById('greetingSub').textContent = "Here is your inventory overview for today.";
+    const { stats, top_sellers, restock_alerts, upcoming_deliveries } = data;
+
+    document.getElementById('dashboardRoot').innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-info">
+            <h4>Total Stock Units</h4>
+            <div class="stat-value" id="smStock">—</div>
+            <div class="stat-delta neutral">Across all batches</div>
+          </div>
+          <div class="stat-icon green">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0e9f6e" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info">
+            <h4>Near Expiry</h4>
+            <div class="stat-value" id="smExpiry">—</div>
+            <div class="stat-delta down" id="smExpiredText">Check expiry monitor</div>
+          </div>
+          <div class="stat-icon red">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e02424" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info">
+            <h4>Restock Alerts</h4>
+            <div class="stat-value" id="smRestock">—</div>
+            <div class="stat-delta neutral">At or below reorder level</div>
+          </div>
+          <div class="stat-icon yellow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left">
+              <div class="card-title">Restock Alerts</div>
+              <div class="card-sub">Products at or below reorder level</div>
+            </div>
+            <span class="badge badge-danger" id="smRestockBadge">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Product</th><th>Stock</th><th>Threshold</th><th>Supplier</th><th>Status</th></tr></thead>
+              <tbody id="smRestockTbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left">
+              <div class="card-title">Top Selling Products</div>
+              <div class="card-sub">By units sold all time</div>
+            </div>
+          </div>
+          <div class="card-body" id="smTopBody" style="display:flex;flex-direction:column;gap:14px">
+            <div style="text-align:center;color:var(--text-muted);font-size:.8rem;padding:20px">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="smUpcomingCard" style="display:none">
+        <div class="card-header">
+          <div class="card-header-left">
+            <div class="card-title">Upcoming Deliveries</div>
+            <div class="card-sub">Batches with future delivery dates — not yet available for sale</div>
+          </div>
+          <span class="badge badge-warning" id="smUpcomingBadge">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Batch No.</th><th>Product</th><th>Incoming Qty</th><th>Delivery Date</th><th>Days Away</th><th>Supplier</th></tr></thead>
+            <tbody id="smUpcomingTbody"></tbody>
+          </table>
+        </div>
+      </div>`;
+
+    document.getElementById('smStock').textContent   = parseInt(stats.total_stock).toLocaleString();
+    document.getElementById('smExpiry').textContent  = stats.near_expiry;
+    document.getElementById('smRestock').textContent = stats.restock_alerts;
+    if (stats.expired > 0)
+        document.getElementById('smExpiredText').textContent = stats.expired + ' already expired';
+
+    document.getElementById('smRestockBadge').textContent = restock_alerts.length + ' items';
+    const restockTbody = document.getElementById('smRestockTbody');
+    if (!restock_alerts.length) {
+        restockTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No restock alerts.</td></tr>`;
+    } else {
+        restockTbody.innerHTML = restock_alerts.map(r => `
+            <tr>
+              <td><div class="td-bold">${r.product_name}</div><div class="td-sub">${r.sku_code}</div></td>
+              <td>${r.total_stock}</td>
+              <td>${r.reorder_level}</td>
+              <td>${r.supplier}</td>
+              <td>${stockBadge(r.stock_status)}</td>
+            </tr>`).join('');
+    }
+
+    const topBody = document.getElementById('smTopBody');
+    if (!top_sellers.length) {
+        topBody.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:.8rem">No sales data yet.</div>`;
+    } else {
+        const maxSold = Math.max(...top_sellers.map(r => parseInt(r.total_sold)));
+        topBody.innerHTML = top_sellers.map((r, i) => `
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:.82rem">
+                <span>${r.product_name}</span>
+                <span style="color:var(--text-muted)">${r.total_sold} sold</span>
+              </div>
+              <div class="prog-bar">
+                <div class="prog-fill" style="width:${Math.round(r.total_sold/maxSold*100)}%;background:${COLORS[i%COLORS.length]}"></div>
+              </div>
+            </div>`).join('');
+    }
+
+    if (upcoming_deliveries && upcoming_deliveries.length > 0) {
+        document.getElementById('smUpcomingCard').style.display = '';
+        document.getElementById('smUpcomingBadge').textContent = upcoming_deliveries.length + ' batch' + (upcoming_deliveries.length > 1 ? 'es' : '');
+        document.getElementById('smUpcomingTbody').innerHTML = upcoming_deliveries.map(r => `
+            <tr>
+              <td class="td-sub">${r.batch_number || '—'}</td>
+              <td><div class="td-bold">${r.product_name}</div><div class="td-sub">${r.sku_code}</div></td>
+              <td>${parseInt(r.incoming_qty).toLocaleString()}</td>
+              <td>${r.delivery_date}</td>
+              <td><span class="badge badge-warning">${r.days_until_delivery}d</span></td>
+              <td>${r.supplier}</td>
+            </tr>`).join('');
+    }
+}
+
+// ── ADMIN DASHBOARD ──────────────────────────────────────────
+function renderAdmin(data) {
+    document.getElementById('greetingSub').textContent = "Here is your inventory overview for today.";
+    const { stats, sales_trend, by_category, top_sellers, restock_alerts, upcoming_deliveries } = data;
+
+    document.getElementById('dashboardRoot').innerHTML = `
+      <div id="expiryAlert" class="alert-strip alert-danger" style="display:none;cursor:pointer" onclick="window.location.href='expiry.html'">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="expiryAlertText"></span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-info"><h4>Total Products</h4><div class="stat-value" id="aProducts">—</div><div class="stat-delta neutral">Active product catalog</div></div>
+          <div class="stat-icon blue"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info"><h4>Total Stock Units</h4><div class="stat-value" id="aStock">—</div><div class="stat-delta neutral">Across all batches</div></div>
+          <div class="stat-icon green"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0e9f6e" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info"><h4>Near Expiry Batches</h4><div class="stat-value" id="aExpiry">—</div><div class="stat-delta down" id="aExpiredText">Check expiry monitor</div></div>
+          <div class="stat-icon red"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e02424" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info"><h4>Monthly Revenue</h4><div class="stat-value" id="aRevenue">—</div><div class="stat-delta neutral">Current month</div></div>
+          <div class="stat-icon yellow"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        </div>
+      </div>
+
+      <div class="grid-2-1">
+        <div class="card">
+          <div class="card-header"><div class="card-header-left"><div class="card-title">Sales Trend</div><div class="card-sub">Revenue for the last 7 days</div></div></div>
+          <div class="card-body"><canvas id="adminSalesChart" height="190"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-header-left"><div class="card-title">Stock by Category</div><div class="card-sub">Current distribution</div></div></div>
+          <div class="card-body">
+            <div class="donut-wrap">
+              <div class="donut-canvas-wrap" style="height:150px"><canvas id="donutChart"></canvas></div>
+              <div class="legend-list" id="donutLegend"><div style="text-align:center;color:var(--text-muted);font-size:.8rem;padding:20px">Loading...</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left"><div class="card-title">Restock Alerts</div><div class="card-sub">Products at or below reorder level</div></div>
+            <span class="badge badge-danger" id="aRestockBadge">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Product</th><th>Stock</th><th>Threshold</th><th>Supplier</th><th>Status</th></tr></thead>
+              <tbody id="aRestockTbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-header-left"><div class="card-title">Top Selling Products</div><div class="card-sub">By units sold this period</div></div><span class="badge badge-info">This Month</span></div>
+          <div class="card-body" id="aTopBody" style="display:flex;flex-direction:column;gap:14px">
+            <div style="text-align:center;color:var(--text-muted);font-size:.8rem;padding:20px">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="aUpcomingCard" style="display:none">
+        <div class="card-header">
+          <div class="card-header-left"><div class="card-title">Upcoming Deliveries</div><div class="card-sub">Batches with future delivery dates — stock not yet available for sale</div></div>
+          <span class="badge badge-warning" id="aUpcomingBadge">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Batch No.</th><th>Product</th><th>Incoming Qty</th><th>Delivery Date</th><th>Days Away</th><th>Supplier</th></tr></thead>
+            <tbody id="aUpcomingTbody"></tbody>
+          </table>
+        </div>
+      </div>`;
+
+    document.getElementById('aProducts').textContent = parseInt(stats.total_products).toLocaleString();
+    document.getElementById('aStock').textContent    = parseInt(stats.total_stock).toLocaleString();
+    document.getElementById('aExpiry').textContent   = stats.near_expiry;
+    document.getElementById('aRevenue').textContent  = fmt(stats.monthly_revenue);
+    if (stats.expired > 0)
+        document.getElementById('aExpiredText').textContent = stats.expired + ' already expired';
+
+    if (stats.near_expiry > 0 || stats.expired > 0) {
+        const total = stats.near_expiry + stats.expired;
+        document.getElementById('expiryAlertText').innerHTML =
+            `<strong>${total} batch${total>1?'es':''}</strong> ${stats.expired>0?'have expired or are':'are'} expiring within 90 days. Click to view Expiry Monitor.`;
+        document.getElementById('expiryAlert').style.display = 'flex';
+        document.getElementById('notifDot').style.display = 'block';
+    }
+
+    renderSalesChart('adminSalesChart', sales_trend, '#1a56db');
+
+    // Donut chart
+    let donutInstance = null;
+    const catLabels = by_category.map(r => r.category);
+    const catData   = by_category.map(r => parseInt(r.total_stock));
+    const catTotal  = catData.reduce((a,b) => a+b, 0);
+    const legendEl  = document.getElementById('donutLegend');
+    if (donutInstance) donutInstance.destroy();
+    if (!by_category.length) {
+        document.getElementById('donutChart').style.display = 'none';
+        legendEl.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:.8rem;padding:28px 12px">🗂️ No stock data yet.</div>`;
+    } else {
+        donutInstance = new Chart(document.getElementById('donutChart'), {
+            type: 'doughnut',
+            data: { labels: catLabels, datasets: [{ data: catData,
+                backgroundColor: COLORS.slice(0, catLabels.length), borderWidth:0, hoverOffset:5 }] },
+            options: { responsive:true, cutout:'68%', plugins:{legend:{display:false}} }
+        });
+        legendEl.innerHTML = by_category.map((r,i) => `
+            <div class="legend-row">
+              <div class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>
+              <span class="legend-label">${r.category}</span>
+              <span class="legend-val">${catTotal>0?Math.round(r.total_stock/catTotal*100):0}%</span>
+            </div>`).join('');
+    }
+
+    document.getElementById('aRestockBadge').textContent = restock_alerts.length + ' items';
+    const restockTbody = document.getElementById('aRestockTbody');
+    if (!restock_alerts.length) {
+        restockTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No restock alerts.</td></tr>`;
+    } else {
+        restockTbody.innerHTML = restock_alerts.map(r => `
+            <tr>
+              <td><div class="td-bold">${r.product_name}</div><div class="td-sub">${r.sku_code}</div></td>
+              <td>${r.total_stock}</td><td>${r.reorder_level}</td><td>${r.supplier}</td>
+              <td>${stockBadge(r.stock_status)}</td>
+            </tr>`).join('');
+    }
+
+    const topBody = document.getElementById('aTopBody');
+    if (!top_sellers.length) {
+        topBody.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:.8rem">No sales data yet.</div>`;
+    } else {
+        const maxSold = Math.max(...top_sellers.map(r => parseInt(r.total_sold)));
+        topBody.innerHTML = top_sellers.map((r,i) => `
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:.82rem">
+                <span>${r.product_name}</span><span style="color:var(--text-muted)">${r.total_sold} sold</span>
+              </div>
+              <div class="prog-bar"><div class="prog-fill" style="width:${Math.round(r.total_sold/maxSold*100)}%;background:${COLORS[i%COLORS.length]}"></div></div>
+            </div>`).join('');
+    }
+
+    if (upcoming_deliveries && upcoming_deliveries.length > 0) {
+        document.getElementById('aUpcomingCard').style.display = '';
+        document.getElementById('aUpcomingBadge').textContent = upcoming_deliveries.length + ' batch' + (upcoming_deliveries.length>1?'es':'');
+        document.getElementById('aUpcomingTbody').innerHTML = upcoming_deliveries.map(r => `
+            <tr>
+              <td class="td-sub">${r.batch_number||'—'}</td>
+              <td><div class="td-bold">${r.product_name}</div><div class="td-sub">${r.sku_code}</div></td>
+              <td>${parseInt(r.incoming_qty).toLocaleString()}</td>
+              <td>${r.delivery_date}</td>
+              <td><span class="badge badge-warning">${r.days_until_delivery}d</span></td>
+              <td>${r.supplier}</td>
+            </tr>`).join('');
+    }
+}
+
+// ── Load dashboard ───────────────────────────────────────────
+async function loadDashboard() {
+    const res = await apiGet('dashboard.php');
+    if (!res) return;
+    if (res.role === 'cashier')       renderCashier(res);
+    else if (res.role === 'stock_manager') renderStockManager(res);
+    else                               renderAdmin(res);
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

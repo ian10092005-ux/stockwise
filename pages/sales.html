@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Sales <span class="topbar-sub">/ Transactions</span></div>
+    <div class="search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="saleSearch" placeholder="Search transactions..." oninput="filterTable('saleSearch','saleTbody')"/>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-dot"></span></button>
+      <button class="btn btn-outline btn-sm" onclick="exportTableToCSV('salesTable','StockWise_Sales.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modalNewSale')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Sale
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Sales</h2>
+        <p>All transactions recorded from the database. Print receipts per sale.</p>
+      </div>
+    </div>
+
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="ms-val" id="msTotal">—</div><div class="ms-lbl">Transactions</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--success)" id="msRevenue">—</div><div class="ms-lbl">Total Revenue</div></div>
+      <div class="mini-stat"><div class="ms-val" id="msAvg">—</div><div class="ms-lbl">Avg per Transaction</div></div>
+      <div class="mini-stat"><div class="ms-val" id="msChange">—</div><div class="ms-lbl">Total Change Given</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-title">Transaction History</div>
+          <div class="card-sub">Most recent first</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="salesTable">
+          <thead>
+            <tr><th>Sale ID</th><th>Date and Time</th><th>Cashier</th><th>Items</th><th>Total</th><th>Cash</th><th>Change</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="saleTbody">
+            <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">Loading sales from database...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW RECEIPT MODAL -->
+<div class="modal-overlay" id="modalViewReceipt">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Receipt Preview</div>
+      <button class="modal-close" onclick="closeModal('modalViewReceipt')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="receiptPreviewBody" style="font-family:'Courier New',monospace;font-size:.82rem;line-height:1.7"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalViewReceipt')">Close</button>
+      <button class="btn btn-primary" id="printBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print Receipt
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW SALE MODAL -->
+<div class="modal-overlay" id="modalNewSale">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Record New Sale</div>
+      <button class="modal-close" onclick="closeModal('modalNewSale')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="saleItemsList"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addSaleItemRow()" style="margin-bottom:14px">+ Add Item</button>
+      <div style="background:#f8faff;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:.83rem;margin-bottom:4px"><span>Subtotal</span><span id="saleSubtotal">P0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:.9rem"><span>Total</span><span id="saleTotal" style="color:var(--primary)">P0.00</span></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Cash Received (P) <span class="req">*</span></label><input class="form-control" id="cashReceived" type="number" step="0.01" placeholder="0.00" oninput="calcChange()"/></div>
+        <div class="form-group"><label class="form-label">Change</label><input class="form-control" id="changeAmt" readonly style="background:#f8faff;font-weight:700"/></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalNewSale')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNewSale()">Record and Print Receipt</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+let _allSales    = [];
+let _allProducts = [];
+
+async function loadPage() {
+    // Load products for new sale dropdown
+    const prodRes = await apiGet('products.php');
+    if (prodRes) _allProducts = prodRes.data;
+
+    // Add first item row
+    addSaleItemRow();
+    await loadSales();
+}
+
+async function loadSales() {
+    const res = await apiGet('sales.php');
+    if (!res) return;
+    _allSales = res.data;
+
+    // Mini stats
+    const total   = _allSales.length;
+    const revenue = _allSales.reduce((s, r) => s + parseFloat(r.total_amount), 0);
+    const avg     = total > 0 ? revenue / total : 0;
+    const change  = _allSales.reduce((s, r) => s + parseFloat(r.change_amount), 0);
+
+    document.getElementById('msTotal').textContent   = total;
+    document.getElementById('msRevenue').textContent = 'P' + revenue.toFixed(2);
+    document.getElementById('msAvg').textContent     = 'P' + avg.toFixed(2);
+    document.getElementById('msChange').textContent  = 'P' + change.toFixed(2);
+
+    renderTable(_allSales);
+}
+
+function renderTable(sales) {
+    const tbody = document.getElementById('saleTbody');
+    if (!sales.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">No transactions found.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = sales.map(s => `
+        <tr>
+          <td class="td-sub">#${String(s.sale_id).padStart(3,'0')}</td>
+          <td>${new Date(s.sale_date).toLocaleString('en-PH')}</td>
+          <td>${s.cashier}</td>
+          <td>${s.item_count}</td>
+          <td>P${parseFloat(s.total_amount).toFixed(2)}</td>
+          <td>P${parseFloat(s.cash_received).toFixed(2)}</td>
+          <td>P${parseFloat(s.change_amount).toFixed(2)}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="viewReceipt(${s.sale_id})">View</button>
+            <button class="btn btn-outline btn-sm" onclick="viewReceipt(${s.sale_id}, true)">Receipt</button>
+          </td>
+        </tr>`).join('');
+}
+
+async function viewReceipt(saleId, autoPrint = false) {
+    const res = await apiGet(`sales.php?id=${saleId}`);
+    if (!res) return;
+    const { sale, items } = res;
+
+    const rows = items.map(i =>
+        `<div style="display:flex;justify-content:space-between;border-bottom:1px dashed #eee;padding:3px 0">
+           <span>${i.product_name}${i.variant_name ? ' ('+i.variant_name+')' : ''} x${i.quantity}</span>
+           <span>P${parseFloat(i.subtotal).toFixed(2)}</span>
+         </div>`).join('');
+
+    document.getElementById('receiptPreviewBody').innerHTML = `
+        <div style="text-align:center;padding-bottom:8px;border-bottom:1px dashed #ccc;margin-bottom:8px">
+          <strong>StockWise</strong><br>
+          <small style="color:#888">Smart Grocery Inventory and Expiry Management</small>
+        </div>
+        <div style="margin-bottom:8px;font-size:.75rem;color:#666">
+          Receipt #${String(sale.sale_id).padStart(3,'0')} | ${new Date(sale.sale_date).toLocaleString('en-PH')}<br>
+          Cashier: ${sale.cashier}
+        </div>
+        ${rows}
+        <div style="padding-top:8px;border-top:1px dashed #ccc;margin-top:8px">
+          <div style="display:flex;justify-content:space-between"><span>Total</span><strong>P${parseFloat(sale.total_amount).toFixed(2)}</strong></div>
+          <div style="display:flex;justify-content:space-between"><span>Cash</span><strong>P${parseFloat(sale.cash_received).toFixed(2)}</strong></div>
+          <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--success)"><span>Change</span><span>P${(sale.cash_received - sale.total_amount).toFixed(2)}</span></div>
+        </div>
+        <div style="text-align:center;margin-top:10px;font-size:.72rem;color:#aaa">Thank you for your purchase!</div>`;
+
+    document.getElementById('printBtn').onclick = () => {
+        printReceipt({
+            id:      String(sale.sale_id).padStart(3,'0'),
+            date:    new Date(sale.sale_date).toLocaleString('en-PH'),
+            cashier: sale.cashier,
+            items:   items.map(i => ({ name: i.product_name + (i.variant_name ? ' ('+i.variant_name+')' : ''), qty: i.quantity, price: i.unit_price })),
+            total:   sale.total_amount,
+            cash:    sale.cash_received,
+            change:  sale.cash_received - sale.total_amount
+        });
+    };
+
+    openModal('modalViewReceipt');
+    if (autoPrint) document.getElementById('printBtn').click();
+}
+
+// ── New Sale ──────────────────────────────────────────────────
+function addSaleItemRow() {
+    const div = document.createElement('div');
+    div.className = 'sale-item-row';
+    div.style.cssText = 'background:var(--bg,#f8faff);border:1px solid var(--border,#e5e9f0);border-radius:10px;padding:12px 14px;margin-bottom:10px;position:relative';
+    div.innerHTML = `
+        <button type="button" onclick="this.closest('.sale-item-row').remove();calcTotal()"
+          style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--text-muted,#aaa);font-size:1.1rem;line-height:1;padding:2px 6px;border-radius:4px"
+          onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted,#aaa)'">&#x2715;</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Product</label>
+            <select class="form-control prod-sel" onchange="onProductSelect(this)">
+              <option value="">-- Select product --</option>
+              ${_allProducts.map(p => '<option value="' + p.product_id + '" data-price="' + p.price + '">' + p.name + '</option>').join('')}
+            </select>
+          </div>
+          <div class="form-group variant-group" style="margin:0">
+            <label class="form-label">Variant</label>
+            <select class="form-control variant-sel" onchange="onVariantSelect(this)" disabled>
+              <option value="">-- Select product first --</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Quantity</label>
+            <input class="form-control qty-inp" type="number" min="1" value="1" oninput="calcTotal()"/>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Unit Price (&#8369;)</label>
+            <input class="form-control price-inp" type="number" step="0.01" value="0" readonly style="background:#fff;font-weight:600"/>
+          </div>
+        </div>`;
+    document.getElementById('saleItemsList').appendChild(div);
+}
+
+async function onProductSelect(sel) {
+    const row = sel.closest('.sale-item-row');
+    const basePrice = parseFloat(sel.options[sel.selectedIndex].dataset.price) || 0;
+    const productId = sel.value;
+    const variantSel = row.querySelector('.variant-sel');
+    const priceInp   = row.querySelector('.price-inp');
+
+    // Reset variant dropdown
+    variantSel.innerHTML = '<option value="">Loading...</option>';
+    variantSel.disabled = true;
+    priceInp.value = basePrice.toFixed(2);
+
+    if (!productId) {
+        variantSel.innerHTML = '<option value="">-- Select product first --</option>';
+        calcTotal();
+        return;
+    }
+
+    // Fetch variants with stock
+    const res = await apiGet(`variants.php?product_id=${productId}`);
+    const variants = res?.data || [];
+
+    if (variants.length === 0) {
+        variantSel.innerHTML = '<option value="">No variants</option>';
+        variantSel.disabled = true;
+    } else {
+        variantSel.innerHTML = `
+            <option value="">-- Select variant --</option>
+            ${variants.map(v => {
+                const addPrice = parseFloat(v.additional_price) || 0;
+                return `<option value="${v.variant_id}" data-add-price="${addPrice}">
+                    ${v.variant_name}${v.size_grams ? ' ('+v.size_grams+'g)' : ''}
+                </option>`;
+            }).join('')}`;
+        variantSel.disabled = false;
+    }
+
+    calcTotal();
+}
+
+function onVariantSelect(sel) {
+    const row = sel.closest('.sale-item-row');
+    const prodSel   = row.querySelector('.prod-sel');
+    const priceInp  = row.querySelector('.price-inp');
+    const basePrice = parseFloat(prodSel.options[prodSel.selectedIndex]?.dataset.price) || 0;
+    const addPrice  = parseFloat(sel.options[sel.selectedIndex]?.dataset.addPrice) || 0;
+    const qtyInp    = row.querySelector('.qty-inp');
+
+    priceInp.value = (basePrice + addPrice).toFixed(2);
+    calcTotal();
+}
+
+function calcTotal() {
+    let total = 0;
+    document.querySelectorAll('.sale-item-row').forEach(row => {
+        const qty   = parseFloat(row.querySelector('.qty-inp').value) || 0;
+        const price = parseFloat(row.querySelector('.price-inp').value) || 0;
+        total += qty * price;
+    });
+    document.getElementById('saleSubtotal').textContent = 'P' + total.toFixed(2);
+    document.getElementById('saleTotal').textContent    = 'P' + total.toFixed(2);
+    calcChange();
+}
+
+function calcChange() {
+    const total  = parseFloat(document.getElementById('saleTotal').textContent.replace('P','')) || 0;
+    const cash   = parseFloat(document.getElementById('cashReceived').value) || 0;
+    const change = cash - total;
+    const el     = document.getElementById('changeAmt');
+    el.value      = change >= 0 ? 'P' + change.toFixed(2) : 'Insufficient';
+    el.style.color = change >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+async function submitNewSale() {
+    const total = parseFloat(document.getElementById('saleTotal').textContent.replace('P','')) || 0;
+    const cash  = parseFloat(document.getElementById('cashReceived').value) || 0;
+
+    if (!total) { showToast('Add at least one item.', 'error'); return; }
+    if (cash < total) { showToast('Cash received is less than total.', 'error'); return; }
+
+    const items = [];
+    let valid = true;
+    document.querySelectorAll('.sale-item-row').forEach(row => {
+        const sel        = row.querySelector('.prod-sel');
+        const variantSel = row.querySelector('.variant-sel');
+        const qty        = parseInt(row.querySelector('.qty-inp').value);
+        const price      = parseFloat(row.querySelector('.price-inp').value);
+        if (!sel.value) { valid = false; return; }
+        const item = { product_id: sel.value, quantity: qty, unit_price: price };
+        if (variantSel && variantSel.value) item.variant_id = variantSel.value;
+        items.push(item);
+    });
+
+    if (!valid || !items.length) { showToast('Please select a product for all items.', 'error'); return; }
+
+    const res = await apiPost('sales.php', { total_amount: total, cash_received: cash, items });
+    if (res.success) {
+        showToast('Sale recorded.');
+        closeModal('modalNewSale');
+        document.getElementById('cashReceived').value = '';
+        document.getElementById('changeAmt').value    = '';
+        document.getElementById('saleItemsList').innerHTML = '';
+        addSaleItemRow();
+        calcTotal();
+        await loadSales();
+        // Auto-show receipt
+        setTimeout(() => viewReceipt(res.sale_id, true), 400);
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
+loadPage();
+</script>
+</body>
+</html>

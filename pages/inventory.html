@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inventory — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Inventory <span class="topbar-sub">/ Batch Tracking</span></div>
+    <div class="search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="invSearch" placeholder="Search batches..." oninput="filterTable('invSearch','invTbody')"/>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-dot"></span>
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="openModal('modalAddBatch')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Batch
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="exportTableToCSV('invTable','StockWise_Inventory.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Inventory</h2>
+        <p>Batch-level stock tracking with expiration monitoring. Data loaded from database.</p>
+      </div>
+    </div>
+
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="ms-val" id="msTotalBatches">—</div><div class="ms-lbl">Total Batches</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--success)" id="msTotalUnits">—</div><div class="ms-lbl">Total Units</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--danger)" id="msExpired">—</div><div class="ms-lbl">Expired</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--warning)" id="msNearExpiry">—</div><div class="ms-lbl">Near Expiry</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-title">All Inventory Batches</div>
+          <div class="card-sub">Each row is one delivery batch with its own expiration date</div>
+        </div>
+        <select class="form-control" id="categoryFilter" style="width:auto;padding:5px 10px;font-size:.78rem" onchange="applyFilters()">
+          <option value="">All Categories</option>
+        </select>
+        <select class="form-control" id="expiryFilter" style="width:auto;padding:5px 10px;font-size:.78rem" onchange="applyFilters()">
+          <option value="">All Statuses</option>
+          <option value="Expired">Expired</option>
+          <option value="Expiring Soon">Expiring Soon</option>
+          <option value="Near Expiry">Near Expiry</option>
+          <option value="Good">Good</option>
+        </select>
+        <select class="form-control" id="stockFilter" style="width:auto;padding:5px 10px;font-size:.78rem" onchange="applyFilters()">
+          <option value="">All Stock Levels</option>
+          <option value="Out of Stock">Out of Stock</option>
+          <option value="Reorder Now">Reorder Now</option>
+          <option value="Low Stock">Low Stock</option>
+          <option value="Sufficient">Sufficient</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="invTable">
+          <thead>
+            <tr><th>Batch No.</th><th>Product</th><th>Variant</th><th>Category</th><th>Stock</th><th>Delivery Date</th><th>Expiry Date</th><th>Days Left</th><th>Delivery</th><th>Expiry Status</th><th>Stock Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="invTbody">
+            <tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted)">Loading inventory from database...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD BATCH MODAL -->
+<div class="modal-overlay" id="modalAddBatch">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Inventory Batch</div>
+      <button class="modal-close" onclick="closeModal('modalAddBatch')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <form id="addBatchForm" onsubmit="submitAddBatch(event)">
+        <div class="form-group">
+          <label class="form-label">Product <span class="req">*</span></label>
+          <select class="form-control" id="ab-product" required onchange="loadVariants(this.value)">
+            <option value="">-- Select a product --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Variant</label>
+          <select class="form-control" id="ab-variant"><option value="">— None —</option></select>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Batch Number</label>
+            <input class="form-control" id="ab-batch" placeholder="Auto-generated if blank"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Quantity <span class="req">*</span></label>
+            <input class="form-control" id="ab-qty" type="number" min="1" required/>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Delivery Date</label>
+            <input class="form-control" id="ab-delivery" type="date"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiration Date <span class="req">*</span></label>
+            <input class="form-control" id="ab-expiry" type="date" required/>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:0;border:none;margin-top:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modalAddBatch')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Batch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT BATCH MODAL -->
+<div class="modal-overlay" id="modalEditBatch">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Batch</div>
+      <button class="modal-close" onclick="closeModal('modalEditBatch')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eb-id"/>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Batch No.</label>
+          <input class="form-control" id="eb-batch" readonly style="background:#f8faff"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Current Stock</label>
+          <input class="form-control" id="eb-qty" type="number" min="0"/>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Delivery Date</label>
+          <input class="form-control" id="eb-delivery" type="date"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expiration Date</label>
+          <input class="form-control" id="eb-expiry" type="date"/>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:0;border:none;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeModal('modalEditBatch')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitEditBatch()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DISPOSE MODAL -->
+<div class="modal-overlay" id="modalDispose">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Dispose Batch</div>
+      <button class="modal-close" onclick="closeModal('modalDispose')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="disp-id"/>
+      <p id="disp-desc" style="margin:0 0 12px;font-size:.88rem;color:var(--text-muted)"></p>
+      <div class="form-group">
+        <label class="form-label">Remarks</label>
+        <input class="form-control" id="disp-remarks" placeholder="e.g. Expired stock disposal" value="Disposed — expired stock"/>
+      </div>
+      <div class="modal-footer" style="padding:0;border:none;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeModal('modalDispose')">Cancel</button>
+        <button class="btn btn-danger" onclick="submitDispose()">Confirm Dispose</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+let _allBatches  = [];
+let _allProducts = [];
+
+async function loadPage() {
+    // Load product dropdown
+    const prodRes = await apiGet('products.php');
+    if (prodRes) {
+        _allProducts = prodRes.data;
+        const sel = document.getElementById('ab-product');
+        const sorted = [..._allProducts].sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(p => {
+            sel.innerHTML += `<option value="${p.product_id}">${p.name} (${p.sku_code})</option>`;
+        });
+    }
+    await loadInventory();
+}
+
+async function loadInventory() {
+    const res = await apiGet('inventory.php');
+    if (!res) return;
+
+    _allBatches = res.data;
+
+    // Update mini stats
+    const total   = _allBatches.length;
+    const units   = _allBatches.reduce((s, r) => s + parseInt(r.current_stock), 0);
+    const expired = _allBatches.filter(r => r.expiry_status === 'Expired').length;
+    const near    = _allBatches.filter(r => r.expiry_status === 'Expiring Soon' || r.expiry_status === 'Near Expiry').length;
+
+    document.getElementById('msTotalBatches').textContent = total;
+    document.getElementById('msTotalUnits').textContent   = units.toLocaleString();
+    document.getElementById('msExpired').textContent      = expired;
+    document.getElementById('msNearExpiry').textContent   = near;
+
+    renderTable(_allBatches);
+}
+
+function renderTable(batches) {
+    const tbody = document.getElementById('invTbody');
+    if (!batches.length) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted)">No batches found.</td></tr>`;
+        return;
+    }
+
+    const expiryBadgeColor = { 'Expired': 'badge-danger', 'Expiring Soon': 'badge-danger', 'Near Expiry': 'badge-warning', 'Good': 'badge-success' };
+    const deliveryBadge    = { 'Pending': '<span class="badge badge-warning">Pending</span>', 'Delivered': '<span class="badge badge-success">Delivered</span>' };
+
+    tbody.innerHTML = batches.map(b => {
+        const canDispose = b.current_stock > 0 || (b.expiry_status === 'Expired' && b.current_stock == 0);
+        const disposeBtn = canDispose
+            ? `<button class="btn btn-danger btn-sm" onclick="openDispose(${b.inventory_id})" style="margin-left:4px">Dispose</button>`
+            : '';
+        return `
+        <tr>
+          <td class="td-sub">${b.batch_number || '—'}</td>
+          <td><div class="td-bold">${b.product_name}</div><div class="td-sub">${b.sku_code}</div></td>
+          <td>${b.variant_name || '—'}</td>
+          <td>${b.category}</td>
+          <td>${b.current_stock}</td>
+          <td>${b.delivery_date || '—'}</td>
+          <td>${b.expiration_date}</td>
+          <td>${b.days_until_expiry}</td>
+          <td>${deliveryBadge[b.delivery_status] || '—'}</td>
+          <td><span class="badge ${expiryBadgeColor[b.expiry_status] || 'badge-gray'}">${b.expiry_status}</span></td>
+          <td>${stockBadge(b.stock_status)}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="openEdit(${b.inventory_id})">Edit</button>
+            ${disposeBtn}
+          </td>
+        </tr>`;
+    }).join('');
+}
+
+function applyFilters() {
+    const category = document.getElementById('categoryFilter').value;
+    const expiry   = document.getElementById('expiryFilter').value;
+    const stock    = document.getElementById('stockFilter').value;
+    let filtered = _allBatches;
+    if (category) filtered = filtered.filter(b => b.category === category);
+    if (expiry)   filtered = filtered.filter(b => b.expiry_status === expiry);
+    if (stock)    filtered = filtered.filter(b => b.stock_status === stock);
+    renderTable(filtered);
+}
+
+async function loadCategoryFilter() {
+    const res = await apiGet('categories.php');
+    if (!res || !res.data) return;
+    const sel = document.getElementById('categoryFilter');
+    res.data.forEach(c => {
+        sel.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+    });
+}
+
+async function loadVariants(productId) {
+    const sel = document.getElementById('ab-variant');
+    sel.innerHTML = '<option value="">— None —</option>';
+    if (!productId) return;
+    const res = await apiGet(`variants.php?product_id=${productId}`);
+    if (res && res.data) {
+        res.data.forEach(v => {
+            sel.innerHTML += `<option value="${v.variant_id}">${v.variant_name}</option>`;
+        });
+    }
+}
+
+async function submitAddBatch(e) {
+    e.preventDefault();
+    const body = {
+        product_id:      document.getElementById('ab-product').value,
+        variant_id:      document.getElementById('ab-variant').value || null,
+        batch_number:    document.getElementById('ab-batch').value,
+        current_stock:   document.getElementById('ab-qty').value,
+        delivery_date:   document.getElementById('ab-delivery').value,
+        expiration_date: document.getElementById('ab-expiry').value,
+    };
+    const res = await apiPost('inventory.php', body);
+    if (res.success) {
+        showToast('Batch added successfully.');
+        closeModal('modalAddBatch');
+        document.getElementById('addBatchForm').reset();
+        loadInventory();
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
+function openEdit(id) {
+    const batch = _allBatches.find(b => b.inventory_id == id);
+    if (!batch) return;
+    document.getElementById('eb-id').value       = batch.inventory_id;
+    document.getElementById('eb-batch').value    = batch.batch_number;
+    document.getElementById('eb-qty').value      = batch.current_stock;
+    document.getElementById('eb-delivery').value = batch.delivery_date;
+    document.getElementById('eb-expiry').value   = batch.expiration_date;
+    openModal('modalEditBatch');
+}
+
+async function submitEditBatch() {
+    const id   = document.getElementById('eb-id').value;
+    const body = {
+        current_stock:   document.getElementById('eb-qty').value,
+        delivery_date:   document.getElementById('eb-delivery').value,
+        expiration_date: document.getElementById('eb-expiry').value,
+    };
+    const res = await apiPut(`inventory.php?id=${id}`, body);
+    if (res.success) {
+        showToast('Batch updated.');
+        closeModal('modalEditBatch');
+        loadInventory()
+} else {
+        showToast(res.message, 'error');
+    }
+}
+
+function openDispose(id) {
+    const batch = _allBatches.find(b => b.inventory_id == id);
+    if (!batch) return;
+    document.getElementById('disp-id').value = id;
+    document.getElementById('disp-desc').textContent =
+        `Batch: ${batch.batch_number} — ${batch.product_name} (${batch.current_stock} units remaining)`;
+    openModal('modalDispose');
+}
+
+async function submitDispose() {
+    const id      = document.getElementById('disp-id').value;
+    const remarks = document.getElementById('disp-remarks').value;
+    const res = await apiPut(`inventory.php?id=${id}`, { dispose: true, remarks });
+    if (res.success) {
+        showToast(`Disposed: ${res.product_name} — ${res.disposed_qty} units removed.`);
+        closeModal('modalDispose');
+        loadInventory();
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
+loadPage();
+loadCategoryFilter();
+</script>
+</body>
+</html>

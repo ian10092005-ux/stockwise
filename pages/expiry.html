@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Expiry Monitor — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Expiry Monitor <span class="topbar-sub">/ Batch Expiration Tracking</span></div>
+    <div class="search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="expSearch" placeholder="Search product or batch..." oninput="filterTable('expSearch','expTbody')"/>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-dot"></span></button>
+      <button class="btn btn-danger btn-sm" id="disposeAllBtn" onclick="openDisposeAll()" style="display:none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Dispose All Expired
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="exportTableToCSV('expiryTable','StockWise_Expiry_Report.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Report
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Expiry Monitor</h2>
+        <p>Track all batches nearing expiration. Data loaded live from database.</p>
+      </div>
+    </div>
+
+    <div id="alertsContainer"></div>
+
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="ms-val" style="color:var(--danger)" id="msExpired">—</div><div class="ms-lbl">Already Expired</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--danger)" id="msExpiringSoon">—</div><div class="ms-lbl">Expiring in 30 days</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--warning)" id="msNearExpiry">—</div><div class="ms-lbl">Expiring in 90 days</div></div>
+      <div class="mini-stat"><div class="ms-val" style="color:var(--success)" id="msGood">—</div><div class="ms-lbl">Good Batches</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-title">Expiry Tracker</div>
+          <div class="card-sub">All batches sorted by expiration date — earliest first</div>
+        </div>
+        <select class="form-control" style="width:auto;padding:5px 10px;font-size:.78rem" onchange="filterByStatus(this.value)">
+          <option value="">All Statuses</option>
+          <option value="Expired">Expired</option>
+          <option value="Expiring Soon">Expiring Soon</option>
+          <option value="Near Expiry">Near Expiry</option>
+          <option value="Good">Good</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="expiryTable">
+          <thead>
+            <tr><th>Product</th><th>Variant</th><th>Batch No.</th><th>Qty</th><th>Expiry Date</th><th>Days Left</th><th>Status</th><th>Supplier</th><th>Contact</th><th>Action</th></tr>
+          </thead>
+          <tbody id="expTbody">
+            <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">Loading from database...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DISPOSAL RESULT MODAL -->
+<div class="modal-overlay" id="modalDisposeResult">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Disposal Summary</div>
+      <button class="modal-close" onclick="closeModal('modalDisposeResult')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="disposeSummaryContent"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalDisposeResult')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+
+<!-- DISPOSE CONFIRM MODAL -->
+<div class="modal-overlay" id="modalDispose">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Disposal</div>
+      <button class="modal-close" onclick="closeModal('modalDispose')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p id="disposeMsg" style="font-size:.88rem;color:var(--text-muted);margin-bottom:12px"></p>
+      <div class="form-group">
+        <label class="form-label">Remarks / Reason <span class="req">*</span></label>
+        <input class="form-control" id="disposeRemarks" placeholder="e.g. Expired — disposed per health protocol" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalDispose')">Cancel</button>
+      <button class="btn btn-danger" id="disposeConfirmBtn" onclick="confirmDispose()">Confirm Dispose</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _allBatches  = [];
+let _disposeMode = null;
+let _disposeId   = null;
+
+async function loadExpiry() {
+    const res = await apiGet('inventory.php');
+    if (!res) return;
+    _allBatches = res.data;
+
+    const expired      = _allBatches.filter(b => b.expiry_status === 'Expired').length;
+    const expiringSoon = _allBatches.filter(b => b.expiry_status === 'Expiring Soon').length;
+    const nearExpiry   = _allBatches.filter(b => b.expiry_status === 'Near Expiry').length;
+    const good         = _allBatches.filter(b => b.expiry_status === 'Good').length;
+
+    document.getElementById('msExpired').textContent      = expired;
+    document.getElementById('msExpiringSoon').textContent = expiringSoon;
+    document.getElementById('msNearExpiry').textContent   = nearExpiry;
+    document.getElementById('msGood').textContent         = good;
+
+    // Show/hide Dispose All button
+    const hasExpiredStock = _allBatches.some(b => b.expiry_status === 'Expired' && b.current_stock > 0);
+    document.getElementById('disposeAllBtn').style.display = hasExpiredStock ? '' : 'none';
+
+    // Alert strips
+    const alertsContainer = document.getElementById('alertsContainer');
+    alertsContainer.innerHTML = '';
+    const expiredItems = _allBatches.filter(b => b.expiry_status === 'Expired' && b.current_stock > 0);
+    if (expiredItems.length) {
+        alertsContainer.innerHTML += `
+        <div class="alert-strip alert-danger">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span><strong>${expiredItems.length} expired batch${expiredItems.length > 1 ? 'es' : ''}</strong> still have remaining stock. Use the Dispose button to remove them.</span>
+        </div>`;
+    }
+    const soonItems = _allBatches.filter(b => b.expiry_status === 'Expiring Soon');
+    if (soonItems.length) {
+        alertsContainer.innerHTML += `
+        <div class="alert-strip alert-warning">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span><strong>${soonItems.length} batch${soonItems.length > 1 ? 'es' : ''}</strong> expiring within 30 days. Consider promotions to move stock faster.</span>
+        </div>`;
+    }
+
+    renderTable(_allBatches);
+}
+
+function renderTable(batches) {
+    const tbody = document.getElementById('expTbody');
+    if (!batches.length) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted)">No batches found.</td></tr>`;
+        return;
+    }
+    const colorMap = { 'Expired': 'badge-danger', 'Expiring Soon': 'badge-danger', 'Near Expiry': 'badge-warning', 'Good': 'badge-success' };
+    tbody.innerHTML = batches.map(b => `
+        <tr>
+          <td><div class="td-bold">${b.product_name}</div></td>
+          <td>${b.variant_name || '—'}</td>
+          <td class="td-sub">${b.batch_number || '—'}</td>
+          <td>${b.current_stock}</td>
+          <td>${b.expiration_date}</td>
+          <td style="font-weight:600;color:${b.days_until_expiry < 0 ? 'var(--danger)' : b.days_until_expiry <= 30 ? 'var(--danger)' : b.days_until_expiry <= 90 ? 'var(--warning)' : 'var(--success)'}">${b.days_until_expiry}</td>
+          <td><span class="badge ${colorMap[b.expiry_status] || 'badge-gray'}">${b.expiry_status}</span></td>
+          <td>${b.supplier || '—'}</td>
+          <td>${b.supplier_contact || '—'}</td>
+          <td>
+            ${b.expiry_status === 'Expired' && b.current_stock > 0
+                ? `<button class="btn-danger-sm" onclick="openDisposeSingle(${b.inventory_id}, '${b.product_name.replace(/'/g,"\\'")}', ${b.current_stock})">Dispose</button>`
+                : '—'}
+          </td>
+        </tr>`).join('');
+}
+
+function filterByStatus(val) {
+    if (!val) return renderTable(_allBatches);
+    renderTable(_allBatches.filter(b => b.expiry_status === val));
+}
+
+function openDisposeSingle(id, name, qty) {
+    _disposeMode = 'single';
+    _disposeId   = id;
+    document.getElementById('disposeMsg').innerHTML =
+        `You are about to dispose <strong>${name}</strong> (${qty} unit${qty !== 1 ? 's' : ''}). Its stock will be set to zero and a disposal record will be logged.`;
+    document.getElementById('disposeRemarks').value = '';
+    openModal('modalDispose');
+}
+
+function openDisposeAll() {
+    const expired = _allBatches.filter(b => b.expiry_status === 'Expired' && b.current_stock > 0);
+    _disposeMode = 'all';
+    _disposeId   = null;
+    document.getElementById('disposeMsg').innerHTML =
+        `You are about to dispose <strong>${expired.length} expired batch${expired.length > 1 ? 'es' : ''}</strong> with remaining stock. All stocks will be zeroed out and logged.`;
+    document.getElementById('disposeRemarks').value = '';
+    openModal('modalDispose');
+}
+
+async function confirmDispose() {
+    const remarks = document.getElementById('disposeRemarks').value.trim();
+    if (!remarks) { showToast('Please enter a reason for disposal.', 'error'); return; }
+
+    const btn = document.getElementById('disposeConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Disposing…';
+
+    const targets = _disposeMode === 'single'
+        ? _allBatches.filter(b => b.inventory_id == _disposeId)
+        : _allBatches.filter(b => b.expiry_status === 'Expired' && b.current_stock > 0);
+
+    let success = 0, failed = 0;
+    let totalCost = 0;
+    let lowStockProducts = [];
+    let results = [];
+
+    for (const batch of targets) {
+        const res = await apiPut(`inventory.php?id=${batch.inventory_id}`, {
+            dispose: true,
+            remarks: remarks
+        });
+        if (res && res.success) {
+            success++;
+            totalCost += res.disposal_cost || 0;
+            if (res.low_stock) {
+                // Avoid duplicates if same product has multiple batches
+                const exists = lowStockProducts.find(p => p.product_name === res.product_name);
+                if (!exists) lowStockProducts.push(res);
+            }
+            results.push(res);
+        } else {
+            failed++;
+        }
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Confirm Dispose';
+    closeModal('modalDispose');
+    await loadExpiry();
+
+    // Build summary content
+    let html = '';
+
+    // Disposal cost
+    html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="font-size:.75rem;color:var(--danger);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Estimated Loss</div>
+        <div style="font-size:1.5rem;font-weight:800;color:var(--danger)">₱${totalCost.toFixed(2)}</div>
+        <div style="font-size:.78rem;color:var(--text-muted);margin-top:4px">${success} batch${success !== 1 ? 'es' : ''} disposed${failed > 0 ? `, ${failed} failed` : ''}</div>
+    </div>`;
+
+    // Low stock warnings
+    if (lowStockProducts.length > 0) {
+        html += `<div style="margin-bottom:12px">
+            <div style="font-size:.78rem;font-weight:700;color:var(--warning);margin-bottom:10px">⚠️ Low Stock Alert</div>`;
+        lowStockProducts.forEach(p => {
+            html += `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:8px">
+                <div style="font-weight:600;font-size:.85rem">${p.product_name}</div>
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">Remaining stock: <strong>${p.total_stock}</strong> units &nbsp;|&nbsp; Reorder level: <strong>${p.reorder_level}</strong> units</div>
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:6px">Supplier: <strong>${p.supplier}</strong></div>
+                <div style="font-size:.78rem;color:var(--text-muted)">Contact: ${p.supplier_contact || '—'} &nbsp;|&nbsp; ${p.supplier_phone || '—'}</div>
+            </div>`;
+        });
+        html += `</div>`;
+    } else {
+        html += `<div style="font-size:.82rem;color:var(--success);font-weight:600">✓ Stock levels are still sufficient after disposal.</div>`;
+    }
+
+    document.getElementById('disposeSummaryContent').innerHTML = html;
+    openModal('modalDisposeResult');
+}
+
+loadExpiry();
+</script>
+
+</body>
+</html>

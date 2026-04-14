@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockWise — Login</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body class="login-body">
+
+  <div class="login-left">
+    <div class="login-left-content">
+      <h2>Smart Inventory.<br>Zero Waste.<br>Better Decisions.</h2>
+      <p>StockWise gives your grocery operations a centralized platform to track stock, monitor expiration dates, and make data-driven restocking decisions.</p>
+      <ul class="feature-list">
+        <li><span class="feature-dot"></span> Batch-level expiration date tracking</li>
+        <li><span class="feature-dot"></span> Real-time inventory visibility per category</li>
+        <li><span class="feature-dot"></span> Restocking suggestions based on sales trends</li>
+        <li><span class="feature-dot"></span> Sales analytics and revenue reporting</li>
+        <li><span class="feature-dot"></span> Role-based access: Admin, Stock Manager, Cashier</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="login-right">
+    <div class="login-brand">
+      <div class="logo-row" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:44px;height:44px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <h1 style="font-family:'Sora',sans-serif;font-size:1.5rem;font-weight:700">Stock<span style="color:var(--primary)">Wise</span></h1>
+      </div>
+      <p style="font-size:.8rem;color:var(--text-muted);line-height:1.6">
+        Smart Grocery Inventory and Expiry Management System<br/>
+        Technological Institute of the Philippines — Manila
+      </p>
+    </div>
+
+    <div class="login-form">
+      <h2 style="font-family:'Sora',sans-serif;font-size:1.15rem;font-weight:700;margin-bottom:4px">Welcome back</h2>
+      <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:22px">Sign in to access the inventory system</p>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-control" type="text" id="username" required autocomplete="username" placeholder="Enter your username"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-control" type="password" id="password" required autocomplete="current-password" placeholder="Enter your password"/>
+          <p class="form-hint">Contact your system administrator if you forgot your password.</p>
+        </div>
+
+        <div id="loginError" style="display:none;margin-bottom:12px">
+          <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#991b1b">
+            <span id="loginErrorMsg">Invalid username or password.</span>
+          </div>
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px 16px">
+          Sign In
+        </button>
+      </form>
+
+      <p style="font-size:.72rem;color:var(--text-muted);margin-top:24px;text-align:center">
+        StockWise &copy; 2025 &mdash; Information Management<br/>
+        Busayong &bull; Castigador &bull; Ramos
+      </p>
+    </div>
+  </div>
+
+<script>
+async function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const errBox   = document.getElementById('loginError');
+    const errMsg   = document.getElementById('loginErrorMsg');
+    const btn      = document.getElementById('loginBtn');
+
+    errBox.style.display = 'none';
+    btn.textContent = 'Signing in...';
+    btn.disabled = true;
+
+    try {
+        const res  = await fetch('api/login.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            // Save role for sidebar display
+            sessionStorage.setItem('sw_username', data.username);
+            sessionStorage.setItem('sw_role',     data.role);
+            window.location.href = 'pages/dashboard.html';
+        } else {
+            errBox.style.display = 'block';
+            errMsg.textContent   = data.message || 'Invalid username or password.';
+        }
+    } catch (err) {
+        errBox.style.display = 'block';
+        errMsg.textContent = 'Could not reach the server. Make sure XAMPP is running.';
+    }
+
+    btn.textContent = 'Sign In';
+    btn.disabled = false;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reports — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Reports <span class="topbar-sub">/ Analytics</span></div>
+    <div class="topbar-actions">
+      <button class="icon-btn"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-dot"></span></button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Reports and Analytics</h2>
+        <p>All data loaded live from the database. Export any table to CSV for Excel.</p>
+      </div>
+    </div>
+
+    <!-- Export buttons -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
+      <button class="btn btn-outline btn-sm" onclick="exportTableToCSV('invRptTable','StockWise_Inventory_Report.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Inventory
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="exportTableToCSV('salesRptTable','StockWise_Sales_Report.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Sales
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="exportTableToCSV('expiryRptTable','StockWise_Expiry_Report.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Expiry
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="exportTableToCSV('restockTable','StockWise_Restock_Suggestions.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Restock
+      </button>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid-2" style="margin-bottom:22px">
+      <div class="card">
+        <div class="card-header"><div class="card-header-left"><div class="card-title">Revenue by Category</div><div class="card-sub">Total sales value per category</div></div></div>
+        <div class="card-body"><canvas id="revenueChart" height="200"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-header-left"><div class="card-title">Stock Units by Category</div><div class="card-sub">Current inventory distribution</div></div></div>
+        <div class="card-body"><canvas id="stockChart" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Restock Suggestions -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-header">
+        <div class="card-header-left"><div class="card-title">Restocking Recommendations</div><div class="card-sub">Based on average monthly sales with 2-month supply buffer</div></div>
+        <span class="badge badge-info">Auto-generated from sales data</span>
+      </div>
+      <div class="table-wrap">
+        <table id="restockTable">
+          <thead><tr><th>Product</th><th>Avg Monthly Sales</th><th>Suggested Order</th><th>Supplier</th><th>Contact</th></tr></thead>
+          <tbody id="restockTbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Inventory Summary -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-header"><div class="card-header-left"><div class="card-title">Inventory Summary</div><div class="card-sub">Current stock across all products</div></div></div>
+      <div class="table-wrap">
+        <table id="invRptTable">
+          <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th>Total Stock</th><th>Reorder Level</th><th>Status</th></tr></thead>
+          <tbody id="invRptTbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sales Summary -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-header"><div class="card-header-left"><div class="card-title">Sales Summary by Category</div></div></div>
+      <div class="table-wrap">
+        <table id="salesRptTable">
+          <thead><tr><th>Category</th><th>Items Sold</th><th>Units Sold</th><th>Total Revenue</th></tr></thead>
+          <tbody id="salesRptTbody"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Expiry Report -->
+    <div class="card">
+      <div class="card-header"><div class="card-header-left"><div class="card-title">Expiry Status Report</div></div></div>
+      <div class="table-wrap">
+        <table id="expiryRptTable">
+          <thead><tr><th>Product</th><th>Variant</th><th>Batch No.</th><th>Qty</th><th>Expiry Date</th><th>Status</th></tr></thead>
+          <tbody id="expiryRptTbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+const COLORS = ['#1a56db','#16bdca','#0e9f6e','#d97706','#e02424','#7c3aed','#94a3b8','#ec4899'];
+
+async function loadReports() {
+    const [invRes, salesRes, expiryRes, restockRes] = await Promise.all([
+        apiGet('reports.php?type=inventory'),
+        apiGet('reports.php?type=sales'),
+        apiGet('reports.php?type=expiry'),
+        apiGet('reports.php?type=restock'),
+    ]);
+
+    // Restock table
+    if (restockRes) {
+        document.getElementById('restockTbody').innerHTML = restockRes.data.length
+            ? restockRes.data.map(r => `
+                <tr>
+                  <td><div class="td-bold">${r.product_name}</div></td>
+                  <td>${r.avg_monthly_sold} units</td>
+                  <td><strong>${r.suggested_order_qty} units</strong></td>
+                  <td>${r.supplier}</td>
+                  <td>${r.supplier_contact || '—'}</td>
+                </tr>`).join('')
+            : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No sales data available yet.</td></tr>`;
+    }
+
+    // Inventory summary table
+    if (invRes) {
+        document.getElementById('invRptTbody').innerHTML = invRes.data.map(r => `
+            <tr>
+              <td class="td-sub">${r.sku_code}</td>
+              <td>${r.product_name}</td>
+              <td>${r.category}</td>
+              <td>${r.total_stock}</td>
+              <td>${r.reorder_level}</td>
+              <td>${stockBadge(r.stock_status)}</td>
+            </tr>`).join('');
+    }
+
+    // Sales summary table + revenue chart
+    if (salesRes && salesRes.data.length) {
+        document.getElementById('salesRptTbody').innerHTML = salesRes.data.map(r => `
+            <tr>
+              <td>${r.category}</td>
+              <td>${r.items_sold}</td>
+              <td>${r.units_sold}</td>
+              <td>P${parseFloat(r.total_revenue).toFixed(2)}</td>
+            </tr>`).join('');
+
+        new Chart(document.getElementById('revenueChart'), {
+            type: 'bar',
+            data: {
+                labels:   salesRes.data.map(r => r.category),
+                datasets: [{ label: 'Revenue (P)', data: salesRes.data.map(r => r.total_revenue), backgroundColor: COLORS, borderRadius: 5 }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#f0f4ff' }, ticks: { callback: v => 'P' + v.toLocaleString(), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+        });
+    }
+
+    // Expiry report table
+    if (expiryRes) {
+        const colorMap = { 'Expired': 'badge-danger', 'Expiring Soon': 'badge-danger', 'Near Expiry': 'badge-warning', 'Good': 'badge-success' };
+        document.getElementById('expiryRptTbody').innerHTML = expiryRes.data.map(r => `
+            <tr>
+              <td>${r.product_name}</td>
+              <td>${r.variant_name || '—'}</td>
+              <td class="td-sub">${r.batch_number || '—'}</td>
+              <td>${r.current_stock}</td>
+              <td>${r.expiration_date}</td>
+              <td><span class="badge ${colorMap[r.expiry_status] || 'badge-gray'}">${r.expiry_status}</span></td>
+            </tr>`).join('');
+    }
+
+    // Stock by category chart
+    const invData = invRes ? invRes.data : [];
+    const catMap  = {};
+    invData.forEach(r => { catMap[r.category] = (catMap[r.category] || 0) + parseInt(r.total_stock); });
+    const catLabels = Object.keys(catMap);
+    const catValues = Object.values(catMap);
+
+    if (catLabels.length) {
+        new Chart(document.getElementById('stockChart'), {
+            type: 'bar',
+            data: {
+                labels:   catLabels,
+                datasets: [{ label: 'Units', data: catValues, backgroundColor: COLORS, borderRadius: 5 }]
+            },
+            options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#f0f4ff' }, ticks: { font: { size: 10 } } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+        });
+    }
+}
+
+loadReports();
+</script>
+</body>
+</html>

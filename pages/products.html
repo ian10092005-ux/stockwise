@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Products — StockWise</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Products <span class="topbar-sub">/ Catalog</span></div>
+    <div class="search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="prodSearch" placeholder="Search products..." oninput="filterTable('prodSearch','prodTbody')"/>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-dot"></span></button>
+      <button class="btn btn-outline btn-sm" onclick="exportTableToCSV('productsTable','StockWise_Products.csv')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modalAddProduct')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Product
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Products</h2>
+        <p>Manage your product catalog. Data is loaded live from the database.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-title">Product Catalog</div>
+          <div class="card-sub" id="prodCount">Loading...</div>
+        </div>
+        <select class="form-control" id="catFilter" style="width:auto;padding:5px 10px;font-size:.78rem" onchange="filterByCategory(this.value)">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="productsTable">
+          <thead>
+            <tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Brand</th><th>Supplier</th><th>Price</th><th>Unit</th><th>Reorder Lvl</th><th>Stock</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="prodTbody">
+            <tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted)">Loading products from database...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PRODUCT MODAL -->
+<div class="modal-overlay" id="modalAddProduct">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New Product</div>
+      <button class="modal-close" onclick="closeModal('modalAddProduct')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <form id="addProdForm" onsubmit="submitAddProduct(event)">
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Product Name <span class="req">*</span></label><input class="form-control" id="ap-name" required/></div>
+          <div class="form-group"><label class="form-label">SKU Code <span class="req">*</span></label><input class="form-control" id="ap-sku" required placeholder="e.g. CG-006"/></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Category <span class="req">*</span></label>
+            <select class="form-control" id="ap-category" required><option value="">-- Select --</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Brand <span class="req">*</span></label>
+            <select class="form-control" id="ap-brand" required><option value="">-- Select --</option></select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Supplier <span class="req">*</span></label>
+            <select class="form-control" id="ap-supplier" required><option value="">-- Select --</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Unit</label>
+            <select class="form-control" id="ap-unit"><option>can</option><option>bottle</option><option>pack</option><option>kg</option><option>grams</option><option>ml</option><option>tub</option><option>loaf</option><option>piece</option><option>sachet</option><option>bar</option><option>tube</option></select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Price (P) <span class="req">*</span></label><input class="form-control" id="ap-price" type="number" step="0.01" min="0" required/></div>
+          <div class="form-group"><label class="form-label">Reorder Level</label><input class="form-control" id="ap-reorder" type="number" value="10"/></div>
+        </div>
+        <div class="modal-footer" style="padding:0;border:none;margin-top:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modalAddProduct')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="modalEditProduct">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Product</div>
+      <button class="modal-close" onclick="closeModal('modalEditProduct')"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ep-id"/>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Product Name</label><input class="form-control" id="ep-name"/></div>
+        <div class="form-group"><label class="form-label">SKU</label><input class="form-control" id="ep-sku" readonly style="background:#f8faff"/></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Category</label><select class="form-control" id="ep-category"><option value="">-- Select --</option></select></div>
+        <div class="form-group"><label class="form-label">Brand</label><select class="form-control" id="ep-brand"><option value="">-- Select --</option></select></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Price (P)</label><input class="form-control" id="ep-price" type="number" step="0.01"/></div>
+        <div class="form-group"><label class="form-label">Reorder Level</label><input class="form-control" id="ep-reorder" type="number"/></div>
+      </div>
+      <div class="modal-footer" style="padding:0;border:none;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeModal('modalEditProduct')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitEditProduct()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="modalDeleteProduct">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header"><div class="modal-title">Confirm Delete</div></div>
+    <div class="modal-body">
+      <p style="font-size:.88rem;color:var(--text-muted)">Are you sure you want to delete <strong id="delProdName"></strong>? This cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalDeleteProduct')">Cancel</button>
+      <button class="btn btn-danger" onclick="submitDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+let _allProducts   = [];
+let _deleteId      = null;
+let _categories    = [];
+let _brands        = [];
+let _suppliers     = [];
+
+// ── LOAD PAGE DATA FROM DATABASE ──────────────────────────────
+async function loadPage() {
+    // Load dropdowns
+    const [catRes, brandRes, supRes] = await Promise.all([
+        apiGet('categories.php'),
+        apiGet('brands.php'),
+        apiGet('suppliers.php')
+    ]);
+
+    _categories = catRes?.data || [];
+    _brands     = brandRes?.data || [];
+    _suppliers  = supRes?.data || [];
+
+    // Populate category filter + modal selects
+    const catFilter = document.getElementById('catFilter');
+    ['ap-category','ep-category'].forEach(id => {
+        const sel = document.getElementById(id);
+        _categories.forEach(c => {
+            sel.innerHTML += `<option value="${c.category_id}">${c.name}</option>`;
+        });
+    });
+    _categories.forEach(c => {
+        catFilter.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+    });
+
+    ['ap-brand','ep-brand'].forEach(id => {
+        const sel = document.getElementById(id);
+        _brands.forEach(b => {
+            sel.innerHTML += `<option value="${b.brand_id}">${b.name}</option>`;
+        });
+    });
+
+    document.querySelectorAll('#ap-supplier').forEach(sel => {
+        _suppliers.forEach(s => {
+            sel.innerHTML += `<option value="${s.supplier_id}">${s.name}</option>`;
+        });
+    });
+
+    // Load products
+    await loadProducts();
+}
+
+async function loadProducts() {
+    const res = await apiGet('products.php');
+    if (!res) return;
+    _allProducts = res.data;
+    document.getElementById('prodCount').textContent = `${res.count} products`;
+    renderTable(_allProducts);
+}
+
+function renderTable(products) {
+    const tbody = document.getElementById('prodTbody');
+    if (!products.length) {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted)">No products found.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = products.map(p => `
+        <tr data-id="${p.product_id}">
+          <td class="td-sub">${p.sku_code}</td>
+          <td><div class="td-bold">${p.name}</div></td>
+          <td>${p.category}</td>
+          <td>${p.brand}</td>
+          <td>${p.supplier}</td>
+          <td>P${parseFloat(p.price).toFixed(2)}</td>
+          <td>${p.unit}</td>
+          <td>${p.reorder_level}</td>
+          <td>${p.total_stock}</td>
+          <td>${stockBadge(p.stock_status)}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="openEdit(${p.product_id})">Edit</button>
+            <button class="btn-danger-sm" onclick="openDelete(${p.product_id}, '${p.name}')">Delete</button>
+          </td>
+        </tr>`).join('');
+}
+
+function filterByCategory(val) {
+    if (!val) return renderTable(_allProducts);
+    renderTable(_allProducts.filter(p => p.category === val));
+}
+
+// ── CREATE ────────────────────────────────────────────────────
+async function submitAddProduct(e) {
+    e.preventDefault();
+    if (!validateForm('addProdForm')) { showToast('Fill in all required fields.', 'error'); return; }
+    const body = {
+        name:          document.getElementById('ap-name').value,
+        sku_code:      document.getElementById('ap-sku').value,
+        category_id:   document.getElementById('ap-category').value,
+        brand_id:      document.getElementById('ap-brand').value,
+        supplier_id:   document.getElementById('ap-supplier').value,
+        price:         document.getElementById('ap-price').value,
+        unit:          document.getElementById('ap-unit').value,
+        reorder_level: document.getElementById('ap-reorder').value,
+    };
+    const res = await apiPost('products.php', body);
+    if (res.success) {
+        showToast(`Product added successfully.`);
+        closeModal('modalAddProduct');
+        document.getElementById('addProdForm').reset();
+        loadProducts();
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
+// ── UPDATE ────────────────────────────────────────────────────
+async function openEdit(id) {
+    const res = await apiGet(`products.php?id=${id}`);
+    if (!res) return;
+    const p = res.data;
+    document.getElementById('ep-id').value      = p.product_id;
+    document.getElementById('ep-sku').value      = p.sku_code;
+    document.getElementById('ep-name').value     = p.name;
+    document.getElementById('ep-category').value = p.category_id;
+    document.getElementById('ep-brand').value    = p.brand_id;
+    document.getElementById('ep-price').value    = p.price;
+    document.getElementById('ep-reorder').value  = p.reorder_level;
+    openModal('modalEditProduct');
+}
+
+async function submitEditProduct() {
+    const id   = document.getElementById('ep-id').value;
+    const body = {
+        name:          document.getElementById('ep-name').value,
+        category_id:   document.getElementById('ep-category').value,
+        brand_id:      document.getElementById('ep-brand').value,
+        supplier_id:   1, // keep existing — full edit can add supplier field
+        price:         document.getElementById('ep-price').value,
+        unit:          'can',
+        reorder_level: document.getElementById('ep-reorder').value,
+    };
+    const res = await apiPut(`products.php?id=${id}`, body);
+    if (res.success) {
+        showToast('Product updated.');
+        closeModal('modalEditProduct');
+        loadProducts();
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
+// ── DELETE ────────────────────────────────────────────────────
+function openDelete(id, name) {
+    _deleteId = id;
+    document.getElementById('delProdName').textContent = name;
+    openModal('modalDeleteProduct');
+}
+
+async function submitDelete() {
+    const res = await apiDelete(`products.php?id=${_deleteId}`);
+    if (res.success) {
+        showToast('Product deleted.', 'warn');
+        closeModal('modalDeleteProduct');
+        loadProducts();
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+loadPage();
+</script>
+</body>
+</html>
