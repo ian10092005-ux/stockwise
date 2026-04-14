@@ -1,9 +1,10 @@
 <?php
 
-define('DB_HOST', 'localhost');   // XAMPP MySQL host — always localhost
-define('DB_USER', 'root');        // Default XAMPP username
-define('DB_PASS', '');            // Default XAMPP password (empty string)
-define('DB_NAME', 'StockWise');   // Must match the database name in your SQL script
+define('DB_HOST', 'roundhouse.proxy.rlwy.net');  // public host
+define('DB_USER', 'root');                          // MYSQLUSER
+define('DB_PASS', 'SIsOubEKbWthTLkvGbqJBLQwiDdpSKks');                  // MYSQLPASSWORD
+define('DB_NAME', 'railway');                       // MYSQLDATABASE
+define('DB_PORT', '12345');                         // MYSQLPORT
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
