@@ -1,10 +1,10 @@
 <?php
 
-define('DB_HOST', 'roundhouse.proxy.rlwy.net'); // replace with your public host
-define('DB_USER', 'root');                        // replace with MYSQLUSER
-define('DB_PASS', 'yourpassword');                // replace with MYSQLPASSWORD
-define('DB_NAME', 'railway');                     // replace with MYSQLDATABASE
-define('DB_PORT', 12345);                         // replace with MYSQLPORT
+define('DB_HOST', getenv('MYSQLHOST')     ?: 'localhost');
+define('DB_USER', getenv('MYSQLUSER')     ?: 'root');
+define('DB_PASS', getenv('MYSQLPASSWORD') ?: '');
+define('DB_NAME', getenv('MYSQLDATABASE') ?: 'StockWise');
+define('DB_PORT', (int)(getenv('MYSQLPORT') ?: 3306));
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
 
