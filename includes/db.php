@@ -6,7 +6,7 @@ define('DB_PASS', 'SIsOubEKbWthTLkvGbqJBLQwiDdpSKks');                  // MYSQL
 define('DB_NAME', 'railway');                       // MYSQLDATABASE
 define('DB_PORT', '12345');                         // MYSQLPORT
 
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
 
 if ($conn->connect_error) {
     http_response_code(500);
